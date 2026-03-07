@@ -92,12 +92,15 @@ fun NoteEditorScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         // Single compact top bar: back | logo | title | share
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(topBarBg)
+                .statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

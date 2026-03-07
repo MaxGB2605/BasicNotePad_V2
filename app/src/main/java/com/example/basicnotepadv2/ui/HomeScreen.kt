@@ -137,14 +137,15 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .background(bgColor)
+                .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             // Top App Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topBarBg)
+                    .statusBarsPadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Row(
