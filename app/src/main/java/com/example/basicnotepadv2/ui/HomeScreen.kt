@@ -3,6 +3,7 @@ package com.example.basicnotepadv2.ui
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -25,6 +26,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -52,6 +55,7 @@ import com.example.basicnotepadv2.data.NoteType
 import com.example.basicnotepadv2.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 /**
  * Builds a plain-text representation of a note and fires the system share sheet.
@@ -98,6 +102,23 @@ fun HomeScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Delete with Undo snackbar
+    fun handleDelete(note: Note) {
+        viewModel.deleteNote(note)
+        coroutineScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "\"${note.title.ifEmpty { "Note" }}\" deleted",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.reinsertNote(note)
+            }
+        }
+    }
 
     val bgColor = if (isDarkTheme) DarkBackground else LightBackground
     val topBarBg = if (isDarkTheme) DarkTopBar else LightTopBar
@@ -108,6 +129,7 @@ fun HomeScreen(
 
     Scaffold(
         containerColor = bgColor,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             GradientFab(onClick = { showCreateDialog = true })
         }
@@ -123,7 +145,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topBarBg)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -132,7 +154,7 @@ fun HomeScreen(
                     // App Icon
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(32.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(
                                 Brush.linearGradient(
@@ -145,23 +167,26 @@ fun HomeScreen(
                             imageVector = Icons.Default.Description,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Notepad",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = textPrimary
                     )
                     Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = { viewModel.toggleTheme() }) {
+                    IconButton(
+                        onClick = { viewModel.toggleTheme() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Outlined.WbSunny else Icons.Outlined.DarkMode,
                             contentDescription = "Toggle theme",
                             tint = textSecondary,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -173,14 +198,14 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(topBarBg)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(if (isDarkTheme) DarkSurfaceVariant else LightSurfaceVariant)
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -194,6 +219,7 @@ fun HomeScreen(
                                 value = searchQuery,
                                 onValueChange = { viewModel.setSearchQuery(it) },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimary),
                                 cursorBrush = SolidColor(PrimaryPurple),
                                 modifier = Modifier.weight(1f),
@@ -226,7 +252,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topBarBg)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Filter chips
@@ -264,7 +290,7 @@ fun HomeScreen(
                     Box {
                         IconButton(
                             onClick = { showSortMenu = true },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SwapVert,
@@ -303,7 +329,7 @@ fun HomeScreen(
                     // Search button
                     IconButton(
                         onClick = { viewModel.toggleSearch() },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = if (isSearching) Icons.Default.SearchOff else Icons.Default.Search,
@@ -326,19 +352,19 @@ fun HomeScreen(
                     ViewMode.LIST -> NoteListView(
                         notes = notes,
                         onNoteClick = onNoteClick,
-                        onDeleteNote = { viewModel.deleteNote(it) },
+                        onDeleteNote = { handleDelete(it) },
                         isDarkTheme = isDarkTheme
                     )
                     ViewMode.GRID -> NoteGridView(
                         notes = notes,
                         onNoteClick = onNoteClick,
-                        onDeleteNote = { viewModel.deleteNote(it) },
+                        onDeleteNote = { handleDelete(it) },
                         isDarkTheme = isDarkTheme
                     )
                     ViewMode.STAGGERED -> NoteStaggeredView(
                         notes = notes,
                         onNoteClick = onNoteClick,
-                        onDeleteNote = { viewModel.deleteNote(it) },
+                        onDeleteNote = { handleDelete(it) },
                         isDarkTheme = isDarkTheme
                     )
                 }
@@ -368,14 +394,14 @@ fun FilterChipRow(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         FilterType.entries.forEach { filter ->
             val isSelected = currentFilter == filter
             val label = when (filter) {
                 FilterType.ALL -> "All"
                 FilterType.NOTES -> "Notes"
-                FilterType.CHECKLISTS -> "Checklists"
+                FilterType.CHECKLISTS -> "Lists"  // shortened to fit small screens
             }
             Box(
                 modifier = Modifier
@@ -386,11 +412,11 @@ fun FilterChipRow(
                         } else Color.Transparent
                     )
                     .clickable { onFilterChange(filter) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (isSelected) {
                         if (isDarkTheme) PrimaryPurple else ChipActiveLightText
@@ -412,17 +438,18 @@ fun ViewModeButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(36.dp)
+        modifier = Modifier.size(30.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (isSelected) PrimaryPurple else (if (isDarkTheme) DarkTextSecondary else LightTextSecondary),
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(17.dp)
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteListView(
     notes: List<Note>,
@@ -437,13 +464,56 @@ fun NoteListView(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(notes, key = { it.id }) { note ->
-            NoteCard(
-                note = note,
-                onClick = { onNoteClick(note.id) },
-                onDelete = { onDeleteNote(note) },
-                onShare = { shareNote(context, note) },
-                isDarkTheme = isDarkTheme
+            val dismissState = rememberSwipeToDismissBoxState(
+                confirmValueChange = { value ->
+                    if (value != SwipeToDismissBoxValue.Settled) {
+                        onDeleteNote(note)
+                        true
+                    } else false
+                },
+                positionalThreshold = { totalDistance -> totalDistance * 0.4f }
             )
+            SwipeToDismissBox(
+                state = dismissState,
+                backgroundContent = {
+                    val bgColor by animateColorAsState(
+                        targetValue = when (dismissState.targetValue) {
+                            SwipeToDismissBoxValue.Settled -> Color.Transparent
+                            else -> Color(0xFFDC2626) // red
+                        },
+                        label = "swipeBg"
+                    )
+                    val iconAlignment = when (dismissState.targetValue) {
+                        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                        else -> Alignment.CenterEnd
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(bgColor)
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = iconAlignment
+                    ) {
+                        if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            ) {
+                NoteCard(
+                    note = note,
+                    onClick = { onNoteClick(note.id) },
+                    onDelete = { onDeleteNote(note) },
+                    onShare = { shareNote(context, note) },
+                    isDarkTheme = isDarkTheme
+                )
+            }
         }
     }
 }

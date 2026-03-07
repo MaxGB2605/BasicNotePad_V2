@@ -166,4 +166,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteNoteById(id: Long) {
         viewModelScope.launch { repository.deleteNoteById(id) }
     }
+
+    /** Re-insert a previously deleted note with its original ID (for Undo delete). */
+    fun reinsertNote(note: Note) {
+        viewModelScope.launch { repository.insertNote(note) }
+    }
 }

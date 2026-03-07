@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -25,6 +27,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -110,72 +114,15 @@ fun ChecklistEditorScreen(
             .fillMaxSize()
             .background(bgColor)
     ) {
-        // Top bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(topBarBg)
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(GradientStart, GradientEnd)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Notepad",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = textPrimary
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = {
-                    note?.let { currentNote ->
-                        val noteToShare = currentNote.copy(
-                            title = title.ifEmpty { "Untitled Checklist" },
-                            checklistItems = items
-                        )
-                        shareNote(context, noteToShare)
-                    }
-                }) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = textSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-
-        HorizontalDivider(color = borderColor, thickness = 0.5.dp)
-
-        // Back navigation bar
+        // Single compact top bar: back | logo | title | share
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(topBarBg)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Back button
             IconButton(
                 onClick = {
                     note?.let { currentNote ->
@@ -188,22 +135,61 @@ fun ChecklistEditorScreen(
                         )
                     }
                     onBack()
-                }
+                },
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = textPrimary
+                    tint = textPrimary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
+            // App logo
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Back",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Notepad",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
                 color = textPrimary
             )
+            Spacer(modifier = Modifier.weight(1f))
+            // Share button
+            IconButton(
+                onClick = {
+                    note?.let { currentNote ->
+                        val noteToShare = currentNote.copy(
+                            title = title.ifEmpty { "Untitled Checklist" },
+                            checklistItems = items
+                        )
+                        shareNote(context, noteToShare)
+                    }
+                },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = textSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
 
-        HorizontalDivider(color = borderColor, thickness = 0.5.dp)
 
         // Title field
         Box(
@@ -219,6 +205,7 @@ fun ChecklistEditorScreen(
                     hasChanges = true
                 },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = textPrimary,
                     fontWeight = FontWeight.SemiBold
@@ -259,11 +246,29 @@ fun ChecklistEditorScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = textSecondary
                     )
-                    Text(
-                        text = "$progressPct%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textSecondary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // "Clear done" — only visible when any items are checked
+                        if (completedCount > 0) {
+                            Text(
+                                text = "Clear done",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PrimaryPurple,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable {
+                                        items = items.filter { !it.isChecked }
+                                        hasChanges = true
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = "$progressPct%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textSecondary
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 LinearProgressIndicator(
@@ -292,6 +297,7 @@ fun ChecklistEditorScreen(
                 value = newItemText,
                 onValueChange = { newItemText = it },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimary),
                 cursorBrush = SolidColor(PrimaryPurple),
                 modifier = Modifier
@@ -398,6 +404,7 @@ fun ChecklistItemRow(
     val textPrimary = if (isDarkTheme) DarkTextPrimary else LightTextPrimary
     val textSecondary = if (isDarkTheme) DarkTextSecondary else LightTextSecondary
     val borderColor = if (isDarkTheme) DarkBorder else LightBorder
+    val haptic = LocalHapticFeedback.current
 
     Column {
         Row(
@@ -422,7 +429,10 @@ fun ChecklistItemRow(
                             )
                         } else this
                     }
-                    .clickable(onClick = onToggle),
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 if (item.isChecked) {
@@ -460,6 +470,7 @@ fun ChecklistItemRow(
                 value = item.text,
                 onValueChange = onTextChange,
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = if (item.isChecked) textSecondary else textPrimary,
                     textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None

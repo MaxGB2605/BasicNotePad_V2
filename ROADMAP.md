@@ -20,15 +20,15 @@
 
 ---
 
-## 🚀 Phase 1 — Quick Wins
+## 🚀 Phase 1 — Quick Wins ✅ DONE
 
 > Small effort, big UX improvement. Priority: HIGH
 
-- [ ] **Swipe to delete** — swipe note card left/right to delete on home screen
-- [ ] **Undo delete (Snackbar)** — "Undo" snackbar appears for 4s after a note is deleted
-- [ ] **"Clear completed" button** — remove all ✅ checked items in the checklist editor at once
-- [ ] **Haptic feedback** — short vibration when checking/unchecking a checklist item
-- [ ] **Word / character count** — live count displayed at the bottom of the note editor
+- [x] **Swipe to delete** — swipe note card left/right to delete on home screen
+- [x] **Undo delete (Snackbar)** — "Undo" snackbar appears for 4s after a note is deleted
+- [x] **"Clear completed" button** — remove all ✅ checked items in the checklist editor at once
+- [x] **Haptic feedback** — short vibration when checking/unchecking a checklist item
+- [x] **Word / character count** — live count displayed at the bottom of the note editor
 
 ---
 

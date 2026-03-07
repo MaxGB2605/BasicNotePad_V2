@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -91,70 +93,15 @@ fun NoteEditorScreen(
             .fillMaxSize()
             .background(bgColor)
     ) {
-        // Top bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(topBarBg)
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // App Icon (small)
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(GradientStart, GradientEnd)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Notepad",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = textPrimary
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = {
-                    note?.let { currentNote ->
-                        val noteToShare = currentNote.copy(title = title.ifEmpty { "Untitled Note" }, content = content)
-                        shareNote(context, noteToShare)
-                    }
-                }) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = textSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-
-        HorizontalDivider(color = borderColor, thickness = 0.5.dp)
-
-        // Back navigation bar
+        // Single compact top bar: back | logo | title | share
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(topBarBg)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Back button
             IconButton(
                 onClick = {
                     note?.let { currentNote ->
@@ -167,19 +114,56 @@ fun NoteEditorScreen(
                         )
                     }
                     onBack()
-                }
+                },
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = textPrimary
+                    tint = textPrimary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
+            // App logo
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Back",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Notepad",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
                 color = textPrimary
             )
+            Spacer(modifier = Modifier.weight(1f))
+            // Share button
+            IconButton(
+                onClick = {
+                    note?.let { currentNote ->
+                        val noteToShare = currentNote.copy(title = title.ifEmpty { "Untitled Note" }, content = content)
+                        shareNote(context, noteToShare)
+                    }
+                },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = textSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
 
         HorizontalDivider(color = borderColor, thickness = 0.5.dp)
@@ -198,6 +182,7 @@ fun NoteEditorScreen(
                     hasChanges = true
                 },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = textPrimary,
                     fontWeight = FontWeight.SemiBold
@@ -227,10 +212,12 @@ fun NoteEditorScreen(
                 content = it
                 hasChanges = true
             },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimary),
             cursorBrush = SolidColor(PrimaryPurple),
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .weight(1f)
                 .background(bgColor)
                 .padding(16.dp),
             decorationBox = { innerField ->
@@ -246,5 +233,23 @@ fun NoteEditorScreen(
                 }
             }
         )
+
+        // Word / character count bar
+        val wordCount = if (content.isBlank()) 0
+            else content.trim().split(Regex("\\s+")).size
+        val charCount = content.length
+        HorizontalDivider(color = borderColor, thickness = 0.5.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(surfaceBg)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "$charCount characters · $wordCount words",
+                style = MaterialTheme.typography.labelSmall,
+                color = textTertiary
+            )
+        }
     }
 }
