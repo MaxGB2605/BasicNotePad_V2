@@ -38,6 +38,7 @@ import com.example.basicnotepadv2.data.Note
 import com.example.basicnotepadv2.data.NoteType
 import com.example.basicnotepadv2.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChecklistEditorScreen(
@@ -53,6 +54,7 @@ fun ChecklistEditorScreen(
     var hasChanges by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val bgColor = if (isDarkTheme) DarkBackground else LightBackground
@@ -72,6 +74,13 @@ fun ChecklistEditorScreen(
             // Treat the auto-generated default title as empty so the placeholder hint shows
             title = if (loaded.title == "Untitled Checklist") "" else loaded.title
             items = loaded.checklistItems
+        }
+    }
+
+    // Auto-scroll to the last item whenever items are added
+    LaunchedEffect(items.size) {
+        if (items.isNotEmpty()) {
+            listState.animateScrollToItem(items.size - 1)
         }
     }
 
@@ -332,6 +341,10 @@ fun ChecklistEditorScreen(
                             )
                             newItemText = ""
                             hasChanges = true
+                            // Scroll to the newly added item
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(items.size - 1)
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center

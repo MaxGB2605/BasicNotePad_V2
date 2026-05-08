@@ -4,8 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,6 +28,7 @@ import com.example.basicnotepadv2.data.Note
 import com.example.basicnotepadv2.data.NoteType
 import com.example.basicnotepadv2.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun NoteEditorScreen(
@@ -39,6 +42,7 @@ fun NoteEditorScreen(
     var content by remember { mutableStateOf("") }
     var hasChanges by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     val context = LocalContext.current
 
     val bgColor = if (isDarkTheme) DarkBackground else LightBackground
@@ -72,6 +76,13 @@ fun NoteEditorScreen(
                 )
                 viewModel.saveNote(updatedNote)
             }
+        }
+    }
+
+    // Auto-scroll to bottom when content grows (keeps cursor visible)
+    LaunchedEffect(content.length) {
+        coroutineScope.launch {
+            scrollState.animateScrollTo(scrollState.maxValue)
         }
     }
 
@@ -222,6 +233,7 @@ fun NoteEditorScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .background(bgColor)
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             decorationBox = { innerField ->
                 Column {
