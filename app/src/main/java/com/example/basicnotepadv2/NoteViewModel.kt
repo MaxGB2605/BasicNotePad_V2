@@ -6,10 +6,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.basicnotepadv2.data.ChecklistItem
 import com.example.basicnotepadv2.data.Note
 import com.example.basicnotepadv2.data.NoteDatabase
 import com.example.basicnotepadv2.data.NoteRepository
@@ -27,7 +27,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-val DARK_THEME_KEY = booleanPreferencesKey("dark_theme")
+val DARK_THEME_KEY  = booleanPreferencesKey("dark_theme")
+val VIEW_MODE_KEY   = stringPreferencesKey("view_mode")
+val SORT_ORDER_KEY  = stringPreferencesKey("sort_order")
 
 enum class SortOrder { DATE_DESC, DATE_ASC, TITLE_ASC, TITLE_DESC }
 enum class ViewMode { LIST, GRID, STAGGERED }
@@ -62,10 +64,12 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         val db = NoteDatabase.getDatabase(application)
         repository = NoteRepository(db.noteDao())
 
-        // Load theme preference
+        // Load persisted preferences
         viewModelScope.launch {
             val prefs = dataStore.data.first()
             _isDarkTheme.value = prefs[DARK_THEME_KEY] ?: true
+            prefs[VIEW_MODE_KEY]?.let  { _viewMode.value  = ViewMode.valueOf(it)  }
+            prefs[SORT_ORDER_KEY]?.let { _sortOrder.value = SortOrder.valueOf(it) }
         }
 
         notes = combine(
@@ -97,8 +101,16 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setFilter(filter: FilterType) { _filterType.value = filter }
-    fun setSortOrder(sort: SortOrder) { _sortOrder.value = sort }
-    fun setViewMode(mode: ViewMode) { _viewMode.value = mode }
+
+    fun setSortOrder(sort: SortOrder) {
+        _sortOrder.value = sort
+        viewModelScope.launch { dataStore.edit { it[SORT_ORDER_KEY] = sort.name } }
+    }
+
+    fun setViewMode(mode: ViewMode) {
+        _viewMode.value = mode
+        viewModelScope.launch { dataStore.edit { it[VIEW_MODE_KEY] = mode.name } }
+    }
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun toggleSearch() { _isSearching.value = !_isSearching.value; if (!_isSearching.value) _searchQuery.value = "" }
 
@@ -111,35 +123,6 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun createNote(title: String = "", content: String = ""): Long {
-        var newId = 0L
-        viewModelScope.launch {
-            val note = Note(
-                title = title.ifEmpty { "Untitled Note" },
-                content = content,
-                type = NoteType.NOTE,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            newId = repository.insertNote(note)
-        }
-        return newId
-    }
-
-    fun createChecklist(title: String = ""): Long {
-        var newId = 0L
-        viewModelScope.launch {
-            val note = Note(
-                title = title.ifEmpty { "Untitled Checklist" },
-                type = NoteType.CHECKLIST,
-                checklistItems = emptyList(),
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            newId = repository.insertNote(note)
-        }
-        return newId
-    }
 
     suspend fun insertAndGetNote(type: NoteType): Long {
         val note = Note(
@@ -150,6 +133,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         )
         return repository.insertNote(note)
     }
+
+    /** Insert a fully-constructed note and return its new ID. Used for share intents. */
+    suspend fun insertSharedNote(note: Note): Long = repository.insertNote(note)
 
     suspend fun getNoteById(id: Long): Note? = repository.getNoteById(id)
 

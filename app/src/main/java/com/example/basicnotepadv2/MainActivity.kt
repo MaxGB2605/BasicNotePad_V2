@@ -1,5 +1,6 @@
 package com.example.basicnotepadv2
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,13 +36,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Extract shared text if launched via an ACTION_SEND intent
+        val sharedText: String? = if (intent?.action == Intent.ACTION_SEND) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else null
+
+        val sharedSubject: String? = if (intent?.action == Intent.ACTION_SEND) {
+            intent.getStringExtra(Intent.EXTRA_SUBJECT)
+        } else null
+
         setContent {
             val noteViewModel: NoteViewModel = viewModel()
             val isDarkTheme by noteViewModel.isDarkTheme.collectAsState()
 
             BasicNotePadV2Theme(darkTheme = isDarkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation(noteViewModel = noteViewModel, isDarkTheme = isDarkTheme)
+                    AppNavigation(
+                        noteViewModel = noteViewModel,
+                        isDarkTheme = isDarkTheme,
+                        sharedText = sharedText,
+                        sharedSubject = sharedSubject
+                    )
                 }
             }
         }
@@ -49,9 +65,34 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(noteViewModel: NoteViewModel, isDarkTheme: Boolean) {
+fun AppNavigation(
+    noteViewModel: NoteViewModel,
+    isDarkTheme: Boolean,
+    sharedText: String? = null,
+    sharedSubject: String? = null
+) {
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
+
+    // If the app was opened via a share intent, create a pre-filled note and
+    // navigate to it once the NavHost has been composed.
+    LaunchedEffect(Unit) {
+        if (sharedText != null) {
+            val note = com.example.basicnotepadv2.data.Note(
+                title = sharedSubject?.takeIf { it.isNotBlank() } ?: "Shared Note",
+                content = sharedText,
+                type = NoteType.NOTE,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            val noteId = noteViewModel.insertSharedNote(note)
+            navController.navigate(Screen.NoteEditor.createRoute(noteId)) {
+                // Remove the Home destination from the back stack so pressing
+                // back exits the app rather than landing on an empty home screen.
+                popUpTo(Screen.Home.route) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,

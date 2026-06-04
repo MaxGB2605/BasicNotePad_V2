@@ -28,7 +28,7 @@ import com.example.basicnotepadv2.data.Note
 import com.example.basicnotepadv2.data.NoteType
 import com.example.basicnotepadv2.ui.theme.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+
 
 @Composable
 fun NoteEditorScreen(
@@ -41,7 +41,7 @@ fun NoteEditorScreen(
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var hasChanges by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
+
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
@@ -79,12 +79,7 @@ fun NoteEditorScreen(
         }
     }
 
-    // Auto-scroll to bottom when content grows (keeps cursor visible)
-    LaunchedEffect(content.length) {
-        coroutineScope.launch {
-            scrollState.animateScrollTo(scrollState.maxValue)
-        }
-    }
+
 
     BackHandler {
         // Save on back
