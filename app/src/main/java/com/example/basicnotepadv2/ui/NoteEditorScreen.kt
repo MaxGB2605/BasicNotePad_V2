@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -20,7 +21,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.basicnotepadv2.NoteViewModel
@@ -28,7 +32,6 @@ import com.example.basicnotepadv2.data.Note
 import com.example.basicnotepadv2.data.NoteType
 import com.example.basicnotepadv2.ui.theme.*
 import kotlinx.coroutines.delay
-
 
 @Composable
 fun NoteEditorScreen(
@@ -39,11 +42,17 @@ fun NoteEditorScreen(
 ) {
     var note by remember { mutableStateOf<Note?>(null) }
     var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    // TextFieldValue gives us cursor selection offset, needed for cursor-tracking scroll
+    var contentValue by remember { mutableStateOf(TextFieldValue("")) }
     var hasChanges by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+
+    // Captured from onTextLayout — gives us the cursor's pixel bounding rect
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    // Height of the visible scroll viewport, measured via onSizeChanged on the content Box
+    var viewportHeight by remember { mutableStateOf(0) }
 
     val bgColor = if (isDarkTheme) DarkBackground else LightBackground
     val topBarBg = if (isDarkTheme) DarkTopBar else LightTopBar
@@ -53,6 +62,15 @@ fun NoteEditorScreen(
     val textTertiary = if (isDarkTheme) DarkTextTertiary else LightTextTertiary
     val borderColor = if (isDarkTheme) DarkBorder else LightBorder
 
+    // Keyboard height — changes frame-by-frame as the keyboard animates in/out.
+    // Used as a LaunchedEffect key so the cursor scroll re-fires when the keyboard
+    // appears and shrinks the visible viewport.
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+
+    // Convenience alias — the raw string used for saving, word count, etc.
+    val content = contentValue.text
+
     // Load note
     LaunchedEffect(noteId) {
         val loaded = viewModel.getNoteById(noteId)
@@ -60,7 +78,7 @@ fun NoteEditorScreen(
             note = loaded
             // Treat the auto-generated default title as empty so the placeholder hint shows
             title = if (loaded.title == "Untitled Note") "" else loaded.title
-            content = loaded.content
+            contentValue = TextFieldValue(loaded.content)
         }
     }
 
@@ -69,27 +87,59 @@ fun NoteEditorScreen(
         if (hasChanges && note != null) {
             delay(800)
             note?.let { currentNote ->
-                val updatedNote = currentNote.copy(
-                    title = title.ifEmpty { "Untitled Note" },
-                    content = content,
-                    updatedAt = System.currentTimeMillis()
+                viewModel.saveNote(
+                    currentNote.copy(
+                        title = title.ifEmpty { "Untitled Note" },
+                        content = content,
+                        updatedAt = System.currentTimeMillis()
+                    )
                 )
-                viewModel.saveNote(updatedNote)
             }
         }
     }
 
+    // Scroll to keep the cursor in view whenever the cursor moves OR the keyboard
+    // animates in/out (imeBottom changes every frame during keyboard animation,
+    // causing the effect to restart; only the last run — when the keyboard is fully
+    // open and viewportHeight has settled — actually completes the scroll).
+    LaunchedEffect(contentValue.selection, imeBottom) {
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        if (viewportHeight == 0) return@LaunchedEffect
 
+        try {
+            val offset = contentValue.selection.start.coerceIn(0, content.length)
+            val cursorRect = layout.getCursorRect(offset)
+            val cursorTop    = cursorRect.top.toInt()
+            val cursorBottom = cursorRect.bottom.toInt()
+            val visibleTop    = scrollState.value
+            val visibleBottom = scrollState.value + viewportHeight
+            val padding = 48 // px buffer so the cursor isn't flush against the edge
+
+            when {
+                // Cursor is above the visible area — scroll up
+                cursorTop < visibleTop + padding ->
+                    scrollState.animateScrollTo((cursorTop - padding).coerceAtLeast(0))
+                // Cursor is below the visible area — scroll down
+                cursorBottom > visibleBottom - padding ->
+                    scrollState.animateScrollTo(
+                        (cursorBottom - viewportHeight + padding).coerceAtMost(scrollState.maxValue)
+                    )
+                // Cursor already visible — do nothing
+            }
+        } catch (_: Exception) {
+            // Layout not ready yet; next recomposition will retry
+        }
+    }
 
     BackHandler {
-        // Save on back
         note?.let { currentNote ->
-            val updatedNote = currentNote.copy(
-                title = title.ifEmpty { "Untitled Note" },
-                content = content,
-                updatedAt = System.currentTimeMillis()
+            viewModel.saveNote(
+                currentNote.copy(
+                    title = title.ifEmpty { "Untitled Note" },
+                    content = content,
+                    updatedAt = System.currentTimeMillis()
+                )
             )
-            viewModel.saveNote(updatedNote)
         }
         onBack()
     }
@@ -160,8 +210,7 @@ fun NoteEditorScreen(
             IconButton(
                 onClick = {
                     note?.let { currentNote ->
-                        val noteToShare = currentNote.copy(title = title.ifEmpty { "Untitled Note" }, content = content)
-                        shareNote(context, noteToShare)
+                        shareNote(context, currentNote.copy(title = title.ifEmpty { "Untitled Note" }, content = content))
                     }
                 },
                 modifier = Modifier.size(40.dp)
@@ -214,35 +263,42 @@ fun NoteEditorScreen(
 
         HorizontalDivider(color = borderColor, thickness = 0.5.dp)
 
-        // Content field
-        BasicTextField(
-            value = content,
-            onValueChange = {
-                content = it
-                hasChanges = true
-            },
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimary),
-            cursorBrush = SolidColor(PrimaryPurple),
+        // Content field — wrapped in a Box so we can measure the viewport height
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(bgColor)
-                .verticalScroll(scrollState)
-                .padding(16.dp),
-            decorationBox = { innerField ->
-                Column {
-                    if (content.isEmpty()) {
-                        Text(
-                            text = "Start writing...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = textTertiary
-                        )
+                .onSizeChanged { viewportHeight = it.height }
+        ) {
+            BasicTextField(
+                value = contentValue,
+                onValueChange = { newValue ->
+                    contentValue = newValue
+                    hasChanges = true
+                },
+                onTextLayout = { textLayoutResult = it },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimary),
+                cursorBrush = SolidColor(PrimaryPurple),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(bgColor)
+                    .verticalScroll(scrollState)
+                    .padding(16.dp),
+                decorationBox = { innerField ->
+                    Column {
+                        if (content.isEmpty()) {
+                            Text(
+                                text = "Start writing...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textTertiary
+                            )
+                        }
+                        innerField()
                     }
-                    innerField()
                 }
-            }
-        )
+            )
+        }
 
         // Word / character count bar
         val wordCount = if (content.isBlank()) 0

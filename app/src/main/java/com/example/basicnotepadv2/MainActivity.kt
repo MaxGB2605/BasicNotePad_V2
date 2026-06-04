@@ -64,6 +64,34 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Derives a readable note title from a share intent.
+ *
+ * Priority:
+ *  1. Explicit subject (e.g. from email apps) — used as-is.
+ *  2. First non-blank line of the shared text, trimmed to 60 chars at a word boundary.
+ *  3. Fallback: "Shared Note".
+ */
+fun deriveSharedNoteTitle(subject: String?, text: String?): String {
+    // 1. Use explicit subject if provided (email, some AI apps)
+    subject?.takeIf { it.isNotBlank() }?.let { return it.trim() }
+
+    // 2. Extract first meaningful line from the body
+    val firstLine = text
+        ?.lineSequence()
+        ?.firstOrNull { it.isNotBlank() }
+        ?.trim()
+        ?: return "Shared Note"
+
+    // Truncate to 60 chars at the nearest word boundary
+    return if (firstLine.length <= 60) {
+        firstLine
+    } else {
+        val cut = firstLine.lastIndexOf(' ', 60)
+        if (cut > 0) firstLine.substring(0, cut) else firstLine.substring(0, 60)
+    }
+}
+
 @Composable
 fun AppNavigation(
     noteViewModel: NoteViewModel,
@@ -79,7 +107,7 @@ fun AppNavigation(
     LaunchedEffect(Unit) {
         if (sharedText != null) {
             val note = com.example.basicnotepadv2.data.Note(
-                title = sharedSubject?.takeIf { it.isNotBlank() } ?: "Shared Note",
+                title = deriveSharedNoteTitle(sharedSubject, sharedText),
                 content = sharedText,
                 type = NoteType.NOTE,
                 createdAt = System.currentTimeMillis(),
