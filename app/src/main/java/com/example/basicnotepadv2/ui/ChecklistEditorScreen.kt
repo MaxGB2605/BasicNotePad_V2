@@ -77,12 +77,7 @@ fun ChecklistEditorScreen(
         }
     }
 
-    // Auto-scroll to the last item whenever items are added
-    LaunchedEffect(items.size) {
-        if (items.isNotEmpty()) {
-            listState.animateScrollToItem(items.size - 1)
-        }
-    }
+
 
     // Auto-save with debounce
     LaunchedEffect(title, items) {
@@ -334,16 +329,17 @@ fun ChecklistEditorScreen(
                     .background(PrimaryPurple)
                     .clickable {
                         if (newItemText.isNotBlank()) {
-                            items = items + ChecklistItem(
+                            val newItem = ChecklistItem(
                                 id = System.currentTimeMillis(),
                                 text = newItemText.trim(),
                                 isChecked = false
                             )
+                            // Insert at the top so the newest item is always first
+                            items = items.toMutableList().also { it.add(0, newItem) }
                             newItemText = ""
                             hasChanges = true
-                            // Scroll to the newly added item
                             coroutineScope.launch {
-                                listState.animateScrollToItem(items.size - 1)
+                                listState.animateScrollToItem(0)
                             }
                         }
                     },
